@@ -39,6 +39,7 @@ export function TestFlow({ startMode }: { startMode: StartMode }) {
   const [ready, setReady] = useState(false);
   const [active, setActive] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [consentPrompt, setConsentPrompt] = useState(false);
   const [existing, setExisting] = useState<{ response: ResponseInput; revision: number } | null>(null);
   const [revision, setRevision] = useState<number | null>(null);
   const [step, setStep] = useState(0);
@@ -47,6 +48,7 @@ export function TestFlow({ startMode }: { startMode: StartMode }) {
   const [saving, setSaving] = useState(false);
   const [ageDraft, setAgeDraft] = useState({ min: "", max: "" });
   const questionHeading = useRef<HTMLHeadingElement>(null);
+  const consentDialog = useRef<HTMLDialogElement>(null);
 
   const steps = useMemo(() => form.personality_weight === 0 ? [0, 1, 2, 3, 4, 6] : [0, 1, 2, 3, 4, 5, 6], [form.personality_weight]);
   const visibleStep = steps.includes(step) ? step : steps[Math.min(steps.length - 1, 4)];
@@ -106,6 +108,13 @@ export function TestFlow({ startMode }: { startMode: StartMode }) {
   }, [active, form, revision]);
 
   useEffect(() => { if (active) questionHeading.current?.focus({ preventScroll: true }); }, [visibleStep, active]);
+
+  useEffect(() => {
+    const dialog = consentDialog.current;
+    if (!dialog) return;
+    if (consentPrompt && !dialog.open) dialog.showModal();
+    else if (!consentPrompt && dialog.open) dialog.close();
+  }, [consentPrompt]);
 
   const setValue = useCallback(<K extends keyof ResponseInput>(key: K, value: ResponseInput[K]) => {
     setForm((old) => ({ ...old, [key]: value }));
@@ -167,10 +176,7 @@ export function TestFlow({ startMode }: { startMode: StartMode }) {
     setStep(steps[index - 1]);
   }
 
-  async function submit() {
-    const parsed = responseSchema.safeParse(form);
-    if (!parsed.success) { setError("응답을 다시 확인해주세요. 비어 있는 항목이 있는지 살펴봐주세요."); return; }
-    if (!consent) { setError("응답 저장과 집계 안내에 동의해주세요."); return; }
+  async function persistResponse(responseInput: ResponseInput) {
     setSaving(true);
     setError("");
     const elapsed = Date.now() - getFlowStartedAt();
@@ -185,7 +191,7 @@ export function TestFlow({ startMode }: { startMode: StartMode }) {
           consentVersion: CONSENT_VERSION,
           expectedRevision: revision,
           submissionId: crypto.randomUUID(),
-          response: parsed.data,
+          response: responseInput,
         }),
       });
       const payload = await response.json() as { error?: string; revision?: number; saved?: boolean; resultPending?: boolean };
@@ -205,6 +211,25 @@ export function TestFlow({ startMode }: { startMode: StartMode }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  function submit() {
+    const parsed = responseSchema.safeParse(form);
+    if (!parsed.success) { setError("응답을 다시 확인해주세요. 비어 있는 항목이 있는지 살펴봐주세요."); return; }
+    if (!consent) { setConsentPrompt(true); return; }
+    void persistResponse(parsed.data);
+  }
+
+  function confirmSave() {
+    const parsed = responseSchema.safeParse(form);
+    if (!parsed.success) {
+      setConsentPrompt(false);
+      setError("응답을 다시 확인해주세요. 비어 있는 항목이 있는지 살펴봐주세요.");
+      return;
+    }
+    setConsent(true);
+    setConsentPrompt(false);
+    void persistResponse(parsed.data);
   }
 
   async function reloadLatest() {
@@ -256,13 +281,11 @@ export function TestFlow({ startMode }: { startMode: StartMode }) {
             <section className="welcome-card" aria-labelledby="welcome-title">
               <p className="eyebrow"><span className="eyebrow-dot" /> 약 1분이면 끝나요</p>
               <h1 id="welcome-title">내 취향과 누군가의 취향,<br />얼마나 겹칠까요?</h1>
-              <p className="welcome-description">서로 선택한 조건을 실제 참여 응답과 비교해요. 결과는 입력한 취향을 비교한 오락용 숫자예요.</p>
-              <label className="consent-row"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span>응답 저장과 익명 집계에 동의해요.</span></label>
               {error && <p className="inline-error" role="alert">{error}</p>}
-              <button className="button button-primary welcome-cta" disabled={!consent} onClick={() => {
+              <button className="button button-primary welcome-cta" onClick={() => {
                 setActive(true); setStep(0); getFlowStartedAt();
                 trackEvent({ name: "test_start", isRepeat: revision !== null });
-              }}>동의하고 시작하기 <span aria-hidden="true">→</span></button>
+              }}>시작하기 <span aria-hidden="true">→</span></button>
             </section>
           ) : (
             <section className="question-card" aria-labelledby="question-title">
@@ -366,6 +389,23 @@ export function TestFlow({ startMode }: { startMode: StartMode }) {
               {visibleStep === steps.at(-1) && <p className="submit-note">선택한 응답을 최근 참여자와 비교해요. 이름이나 연락처는 공개하지 않아요.</p>}
             </section>
           )}
+      <dialog
+        ref={consentDialog}
+        className="consent-dialog"
+        aria-labelledby="save-consent-title"
+        onCancel={(event) => { event.preventDefault(); setConsentPrompt(false); }}
+        onClose={() => setConsentPrompt(false)}
+      >
+        <div className="consent-dialog-content">
+          <p className="eyebrow"><span className="eyebrow-dot" /> 저장 안내</p>
+          <h2 id="save-consent-title">응답을 저장할까요?</h2>
+          <p>입력한 응답은 익명으로 저장되어 전체 취향 집계에 반영돼요. 저장한 응답은 나중에 수정하거나 삭제할 수 있어요.</p>
+          <div className="consent-dialog-actions">
+            <button type="button" className="button button-secondary" onClick={() => setConsentPrompt(false)}>돌아가기</button>
+            <button type="button" className="button button-primary" disabled={saving} onClick={confirmSave}>{saving ? "저장 중…" : "동의하고 저장하기"}</button>
+          </div>
+        </div>
+      </dialog>
       <footer className="flow-footer"><span>입력은 언제든 수정하거나 삭제할 수 있어요.</span></footer>
     </main>
   );

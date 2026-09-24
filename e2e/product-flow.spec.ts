@@ -30,8 +30,7 @@ async function sendResponse(api: APIRequestContext, input: ResponseInput, expect
 async function answerFullTest(page: Page, baseURL: string, gender: "male" | "female", age: number, useAutocomplete = false) {
   await page.goto(baseURL + "/test?mode=new");
   await expect(page.getByRole("heading", { name: "내 취향과 누군가의 취향, 얼마나 겹칠까요?" })).toBeVisible();
-  await page.getByLabel("응답 저장과 익명 집계에 동의해요.").check();
-  await page.getByRole("button", { name: "동의하고 시작하기" }).click();
+  await page.getByRole("button", { name: "시작하기" }).click();
 
   await page.getByRole("button", { name: gender === "male" ? "남성" : "여성", exact: true }).click();
   await page.getByLabel("현재 만 나이는 몇 살인가요?").fill(String(age));
@@ -77,12 +76,13 @@ async function answerFullTest(page: Page, baseURL: string, gender: "male" | "fem
   await page.getByRole("button", { name: "다음" }).click();
   await page.getByRole("button", { name: "범위를 정할게요" }).click();
   await page.getByRole("button", { name: "결과 보기" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "동의하고 저장하기" }).click();
 }
 
 test("complete, validate, calculate mutual match, revise, and delete a real API-backed flow", async ({ browser, page, baseURL }) => {
   const origin = baseURL!;
 
-  // The consent and questionnaire screens save a genuine response, even when the opposite cohort is empty.
+  // The questionnaire and save confirmation create a genuine response, even when the opposite cohort is empty.
   await page.setViewportSize({ width: 320, height: 780 });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /서로 취향이 맞는 이성은/ })).toBeVisible();
@@ -90,8 +90,7 @@ test("complete, validate, calculate mutual match, revise, and delete a real API-
   expect(landingWidth).toBeLessThanOrEqual(320);
   await page.getByRole("link", { name: "내 취향 알아보기" }).click();
   await expect(page.getByRole("heading", { name: "내 취향과 누군가의 취향, 얼마나 겹칠까요?" })).toBeVisible();
-  await page.getByLabel("응답 저장과 익명 집계에 동의해요.").check();
-  await page.getByRole("button", { name: "동의하고 시작하기" }).click();
+  await page.getByRole("button", { name: "시작하기" }).click();
   await page.getByRole("button", { name: "여성", exact: true }).click();
   await page.getByLabel("현재 만 나이는 몇 살인가요?").fill("26");
   await page.getByRole("button", { name: "다음" }).click();
@@ -113,6 +112,7 @@ test("complete, validate, calculate mutual match, revise, and delete a real API-
   await page.getByRole("button", { name: "다음" }).click();
   await page.getByRole("button", { name: "상관없어요" }).click();
   await page.getByRole("button", { name: "결과 보기" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "동의하고 저장하기" }).click();
   await expect(page.getByRole("heading", { name: "비교할 수 있는 참여자가 아직 없어요." })).toBeVisible();
 
   // Validate the server rejects malformed input and enforces idempotency and optimistic revision checks.
