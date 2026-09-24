@@ -279,13 +279,28 @@ export function TestFlow({ startMode }: { startMode: StartMode }) {
             </section>
           ) : !active ? (
             <section className="welcome-card" aria-labelledby="welcome-title">
-              <p className="eyebrow"><span className="eyebrow-dot" /> 약 1분이면 끝나요</p>
-              <h1 id="welcome-title">내 취향과 누군가의 취향,<br />얼마나 겹칠까요?</h1>
-              {error && <p className="inline-error" role="alert">{error}</p>}
-              <button className="button button-primary welcome-cta" onClick={() => {
-                setActive(true); setStep(0); getFlowStartedAt();
-                trackEvent({ name: "test_start", isRepeat: revision !== null });
-              }}>시작하기 <span aria-hidden="true">→</span></button>
+              <div className="welcome-visual" aria-hidden="true">
+                <span className="welcome-art-note">취향이 만나는 순간</span>
+                <span className="welcome-orbit welcome-orbit-outer" />
+                <span className="welcome-orbit welcome-orbit-inner" />
+                <span className="welcome-disc welcome-disc-you">나</span>
+                <span className="welcome-disc welcome-disc-them">상대</span>
+                <span className="welcome-intersection"><b>취향</b><span>교집합</span></span>
+                <span className="welcome-sparkle welcome-sparkle-one">✦</span>
+                <span className="welcome-sparkle welcome-sparkle-two">✧</span>
+                <span className="welcome-tag welcome-tag-personality">성격</span>
+                <span className="welcome-tag welcome-tag-hobby">취미</span>
+              </div>
+              <div className="welcome-copy">
+                <p className="eyebrow"><span className="eyebrow-dot" /> 약 1분이면 끝나요</p>
+                <h1 id="welcome-title">내 취향과<br />누군가의 취향,<br /><span>얼마나 겹칠까요?</span></h1>
+                <p className="welcome-subtitle">성격과 취미를 고르고,<br />나와 잘 맞는 사람을 찾아봐요.</p>
+                {error && <p className="inline-error" role="alert">{error}</p>}
+                <button className="button button-primary welcome-cta" onClick={() => {
+                  setActive(true); setStep(0); getFlowStartedAt();
+                  trackEvent({ name: "test_start", isRepeat: revision !== null });
+                }}>시작하기 <span aria-hidden="true">→</span></button>
+              </div>
             </section>
           ) : (
             <section className="question-card" aria-labelledby="question-title">

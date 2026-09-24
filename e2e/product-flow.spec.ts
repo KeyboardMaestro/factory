@@ -90,6 +90,8 @@ test("complete, validate, calculate mutual match, revise, and delete a real API-
   expect(landingWidth).toBeLessThanOrEqual(320);
   await page.getByRole("link", { name: "내 취향 알아보기" }).click();
   await expect(page.getByRole("heading", { name: "내 취향과 누군가의 취향, 얼마나 겹칠까요?" })).toBeVisible();
+  const testWidth = await page.locator("body").evaluate((body) => body.scrollWidth);
+  expect(testWidth).toBeLessThanOrEqual(320);
   await page.getByRole("button", { name: "시작하기" }).click();
   await page.getByRole("button", { name: "여성", exact: true }).click();
   await page.getByLabel("현재 만 나이는 몇 살인가요?").fill("26");
